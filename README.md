@@ -1,47 +1,59 @@
-# RSI Dashboard
+# RSI Swing Dashboard
 
-A static, single-page **RSI (Relative Strength Index) indicator dashboard** powered by the
-[Twelve Data API](https://twelvedata.com/). Runs entirely in the browser — no server, no build
-step — so it deploys to **GitHub Pages** as-is.
+A static, single-page **stock swing-trading screener** combining **Finnhub** fundamentals (market
+cap, price, P/E, average volume) with **multi-timeframe RSI** (1h + 4h). Runs entirely in the
+browser — no server, no build step — so it deploys to **GitHub Pages** as-is.
 
-![RSI Dashboard](https://img.shields.io/badge/hosting-GitHub%20Pages-blue)
+![hosting](https://img.shields.io/badge/hosting-GitHub%20Pages-blue)
 
 ## Features
 
-- 📈 RSI line chart with shaded **overbought / oversold** zones (configurable thresholds)
-- Configurable **symbol**, **interval** (1min → 1month), and RSI **period** (default 14)
-- Live **latest RSI** reading with a colored signal badge (Overbought / Neutral / Oversold)
-- 🎯 **Swing Scanner** — ranks the 10 most liquid mega-cap tech stocks by a multi-timeframe RSI
-  **Swing Score**, showing the **entry / exit zone** on both the **1h and 4h** timeframes.
-  Add your **own symbols** to the table with the *Add symbol* box (★-tagged, removable; persisted)
-- ⭐ **Watchlist** — track multiple symbols; each shows its current RSI, color-coded
-- 🔒 API key stored only in your browser's `localStorage` — **never committed to the repo**
-- Settings, scan results & last-used inputs persist between visits
+- 🧮 **Stock Table (top)** — fully editable list of tickers. Add/remove any symbol, press **Run**,
+  and get for each: **Price + % change, Market Cap, Avg Volume (liquidity), P/E**, **RSI 1h & 4h**,
+  **entry/exit zones** on both timeframes, a **Swing Score**, and an actionable **Signal**.
+  Ranked by Swing Score (most oversold first).
+- 📈 **Single-ticker RSI chart (below)** — click any row (or type a symbol) to chart its RSI with
+  shaded overbought/oversold zones, across 1h / 4h / Daily / Weekly / Monthly.
+- ⭐ **Watchlist** — track individual symbols with their current RSI.
+- 🔒 API keys stored only in your browser's `localStorage` — **never committed to the repo**.
 
-## Swing Scanner — the formula
+## Data sources & API keys
 
-**Universe** — the 10 most liquid US-listed mega-cap technology stocks (NVDA, TSLA, AAPL, AMZN,
-MSFT, META, AMD, GOOGL, AVGO, NFLX). High daily dollar volume keeps spreads tight and slippage
-low — the practical definition of "highly liquid" for swing trading.
+Open **⚙️ Settings** and add your keys (stored only in your browser):
 
-**Swing Score (0–100)**
+| Data | Endpoint | Tier |
+| --- | --- | --- |
+| Price / % change | Finnhub `/quote` | Free |
+| Market cap | Finnhub `/stock/profile2` | Free |
+| P/E, avg volume | Finnhub `/stock/metric` | Free |
+| RSI | Finnhub `/indicator` → **Twelve Data `/rsi`** fallback | Indicator often **premium** on Finnhub |
+
+**Important:** Finnhub's technical-indicator endpoint (`/indicator`) typically requires a **paid
+plan**. The dashboard tries it first, and if your plan can't access it, it **automatically falls
+back to your Twelve Data key** for RSI. So:
+
+- Add a **Finnhub** key (free) → you get fundamentals + RSI if your plan includes indicators.
+- Optionally add a **Twelve Data** key (free) → guarantees RSI works even on the Finnhub free tier.
+
+Finnhub has no native 4-hour resolution (`1, 5, 15, 30, 60, D, W, M`), so **4h RSI is derived by
+aggregating 60-minute candles** locally (Wilder's RSI). It's a close approximation of a true 4h RSI.
+
+## The Swing Score
 
 ```
 score = 100 − (0.6 × RSI_4h + 0.4 × RSI_1h)
 ```
 
-Lower RSI on both timeframes ⇒ more oversold ⇒ higher score ⇒ stronger long-entry setup. The 4h
-is weighted higher (0.6) as the primary swing trend; the 1h (0.4) times the entry. The table is
-ranked by score, so the best long-entry candidates sit at the top.
+Lower RSI on both timeframes ⇒ more oversold ⇒ higher score ⇒ stronger long-entry setup. The 4h is
+weighted higher (0.6) as the primary swing trend; the 1h (0.4) times the entry. The table is ranked
+by this score.
 
-- **Entry zone** — RSI ≤ *Entry* threshold (oversold; default 35). Look to enter long.
-- **Exit zone** — RSI ≥ *Exit* threshold (overbought; default 65). Take profit / exit.
-
-Both zones are shown separately for the **1h** and **4h** timeframes. Signals:
+- **Entry zone** — RSI ≤ *Entry* threshold (oversold; default 35). A filled green dot = in zone.
+- **Exit zone** — RSI ≥ *Exit* threshold (overbought; default 65). A filled red dot = in zone.
 
 | Signal | Meaning |
 | --- | --- |
-| **STRONG BUY** | 1h **and** 4h both in entry zone (aligned, highest conviction) |
+| **STRONG BUY** | 1h **and** 4h both in entry zone |
 | **BUY ZONE** | either 1h or 4h in entry zone |
 | **EXIT ZONE** | either 1h or 4h in exit zone |
 | **TAKE PROFIT** | 1h **and** 4h both in exit zone |
@@ -49,57 +61,33 @@ Both zones are shown separately for the **1h** and **4h** timeframes. Signals:
 
 > Educational tool — not financial advice.
 
-A full scan is 10 symbols × 2 timeframes = **20 API credits**. On the free tier (~8 credits/min)
-that takes ~2–3 minutes; results are cached so they load instantly afterward. Raise **Credits/min**
-in the scanner header on a paid plan to scan in seconds.
+## Default universe
 
-## Security note about the API key
+Seeded with the 10 most liquid US-listed mega-cap tech stocks (NVDA, TSLA, AAPL, AMZN, MSFT, META,
+AMD, GOOGL, AVGO, NFLX) — fully editable. Use **+ Add** / the **×** on each row to customize, or
+**↺ Reset** to restore the default 10. Your list and last results persist between visits.
 
-Twelve Data's docs warn never to put your key in client-side code or a public repo. Because
-GitHub Pages is fully public/static, this app **does not hardcode the key**. Instead it prompts
-you for it once and saves it in `localStorage` (your browser only). The key is sent only to
-`api.twelvedata.com`. If you ever expose a key publicly, rotate it from your Twelve Data dashboard.
+## Rate limits
+
+Finnhub free tier ≈ 60 calls/min; the dashboard throttles to ~55/min. Each symbol uses ~4 Finnhub
+calls (quote + profile + metric + indicator), so 10 symbols ≈ 40 calls — a few seconds. If RSI
+falls back to Twelve Data (free ≈ 8 calls/min), larger lists take proportionally longer.
 
 ## Run locally
 
-Any static file server works. For example:
-
 ```bash
-# Python 3
-python3 -m http.server 8000
-# then open http://localhost:8000
+python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
-Or just open `index.html` directly in a browser.
-
-On first load it asks for your **Twelve Data API key** (get a free one at
-[twelvedata.com](https://twelvedata.com/)). Paste it, click **Save**, then enter a symbol
-(e.g. `AAPL`) and press **Load**.
+Or open `index.html` directly. On first load, add your API key(s) in Settings.
 
 ## Deploy to GitHub Pages
 
-1. Create a GitHub repo and push these files:
-   ```bash
-   git add .
-   git commit -m "RSI dashboard"
-   git branch -M main
-   git remote add origin https://github.com/<you>/<repo>.git
-   git push -u origin main
-   ```
-2. In the repo: **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
-   choose `main` / `/ (root)`, and **Save**.
-3. Your dashboard will be live at `https://<you>.github.io/<repo>/` in a minute or two.
-
-Each visitor enters their own API key — nothing sensitive is stored in the repo.
-
-## Free-tier rate limits
-
-The Twelve Data free plan allows roughly **8 requests/minute** and 800/day. The watchlist
-refresh deliberately spaces requests ~8s apart to stay within that limit. If you see an
-error mentioning the rate limit, wait a minute and retry, or upgrade your plan.
+1. Push to a GitHub repo, then **Settings → Pages → Deploy from a branch → `main` / root**.
+2. Live at `https://<you>.github.io/<repo>/`. Each visitor enters their own keys.
 
 ## Tech
 
 - Plain HTML/CSS/JS (no framework, no build)
 - [Chart.js](https://www.chartjs.org/) + date-fns adapter + annotation plugin (via CDN)
-- Twelve Data [`/rsi`](https://twelvedata.com/docs/momentum-indicators/rsi) endpoint
+- Finnhub `/quote`, `/stock/profile2`, `/stock/metric`, `/indicator`; Twelve Data `/rsi` (RSI fallback)

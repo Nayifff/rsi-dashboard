@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RSI Dashboard</title>
+  <title>RSI Swing Dashboard</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -11,7 +11,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="logo">📈</span>
-      <h1>RSI Dashboard</h1>
+      <h1>RSI Swing Dashboard</h1>
     </div>
     <div class="topbar-actions">
       <span id="apiStatus" class="api-status" title="API key status">No API key</span>
@@ -20,26 +20,85 @@
   </header>
 
   <main class="layout">
-    <!-- Controls -->
+    <!-- Stock table (top) -->
+    <section class="panel scanner-panel">
+      <div class="scanner-header">
+        <div>
+          <h2>Stock Table — Swing Screener</h2>
+          <span class="muted small">
+            Fundamentals (Finnhub) + multi-timeframe RSI (1h + 4h) · ranked by Swing Score ·
+            <a href="#" id="formulaToggle">how it works</a>
+          </span>
+        </div>
+        <div class="scanner-controls">
+          <label class="inline">Entry ≤ <input id="entryZone" type="number" value="35" min="0" max="50" /></label>
+          <label class="inline">Exit ≥ <input id="exitZone" type="number" value="65" min="50" max="100" /></label>
+          <div class="add-symbol">
+            <input id="addSymbolInput" type="text" placeholder="Add ticker…" autocomplete="off" spellcheck="false" />
+            <button id="addSymbolBtn" class="btn btn-ghost btn-sm">+ Add</button>
+          </div>
+          <button id="resetSymbolsBtn" class="btn btn-ghost btn-sm" title="Reset to default 10">↺ Reset</button>
+          <button id="runBtn" class="btn btn-primary">Run</button>
+        </div>
+      </div>
+
+      <div id="formulaBox" class="formula-box hidden">
+        <p><b>Add / remove</b> any ticker, then press <b>Run</b> to fetch live data for the whole list.</p>
+        <p><b>Columns</b> — Price &amp; daily % change, Market Cap, Avg Volume (10-day, a liquidity gauge), P/E (all from Finnhub), plus RSI on the 1h and 4h timeframes.</p>
+        <p><b>Swing Score</b> = 100 − (0.6 × RSI<sub>4h</sub> + 0.4 × RSI<sub>1h</sub>). Lower RSI on both timeframes ⇒ more oversold ⇒ higher score ⇒ stronger long-entry setup. 4h is weighted higher as the primary swing trend; 1h times the entry. The table is ranked by this score.</p>
+        <p><b>Entry zone</b>: RSI ≤ Entry (oversold). <b>Exit zone</b>: RSI ≥ Exit (overbought). A filled dot = that timeframe is currently in the zone.</p>
+        <p><b>Signals</b> — <span class="sig sig-badge-strong-buy">STRONG BUY</span> 1h&nbsp;&amp;&nbsp;4h both entry · <span class="sig sig-badge-buy">BUY ZONE</span> either entry · <span class="sig sig-badge-exit">EXIT ZONE</span> either exit · <span class="sig sig-badge-take-profit">TAKE PROFIT</span> both exit · <span class="sig sig-badge-neutral">NEUTRAL</span> otherwise.</p>
+        <p class="muted small">RSI tries Finnhub <code>/indicator</code> first; if your Finnhub plan lacks technical indicators it falls back to your Twelve Data key. 4h RSI is derived by aggregating 60-min candles. Educational tool — not financial advice.</p>
+      </div>
+
+      <div id="scanProgress" class="scan-progress hidden">
+        <div class="bar"><div id="scanBarFill" class="bar-fill"></div></div>
+        <span id="scanProgressText" class="muted small"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="scan-table">
+          <thead>
+            <tr>
+              <th rowspan="2">#</th>
+              <th rowspan="2" class="th-left">Symbol</th>
+              <th rowspan="2">Price</th>
+              <th rowspan="2">Chg %</th>
+              <th rowspan="2">Mkt Cap</th>
+              <th rowspan="2" title="10-day average trading volume">Avg Vol</th>
+              <th rowspan="2">P/E</th>
+              <th rowspan="2">RSI 1h</th>
+              <th rowspan="2">RSI 4h</th>
+              <th colspan="2" class="grp grp-entry">Entry zone</th>
+              <th colspan="2" class="grp grp-exit">Exit zone</th>
+              <th rowspan="2" title="Swing Score — higher = stronger long-entry setup">Score</th>
+              <th rowspan="2">Signal</th>
+            </tr>
+            <tr>
+              <th class="sub">1h</th><th class="sub">4h</th>
+              <th class="sub">1h</th><th class="sub">4h</th>
+            </tr>
+          </thead>
+          <tbody id="scanBody"></tbody>
+        </table>
+      </div>
+      <p id="scanMeta" class="muted small"></p>
+    </section>
+
+    <!-- Single-ticker controls -->
     <section class="panel controls">
       <div class="field">
         <label for="symbolInput">Symbol</label>
         <input id="symbolInput" type="text" placeholder="AAPL" autocomplete="off" spellcheck="false" />
       </div>
       <div class="field">
-        <label for="intervalSelect">Interval</label>
+        <label for="intervalSelect">Timeframe</label>
         <select id="intervalSelect">
-          <option value="1min">1 min</option>
-          <option value="5min">5 min</option>
-          <option value="15min">15 min</option>
-          <option value="30min">30 min</option>
-          <option value="45min">45 min</option>
           <option value="1h">1 hour</option>
-          <option value="2h">2 hour</option>
-          <option value="4h">4 hour</option>
-          <option value="1day" selected>1 day</option>
-          <option value="1week">1 week</option>
-          <option value="1month">1 month</option>
+          <option value="4h" selected>4 hour</option>
+          <option value="D">Daily</option>
+          <option value="W">Weekly</option>
+          <option value="M">Monthly</option>
         </select>
       </div>
       <div class="field field-sm">
@@ -60,7 +119,7 @@
       </div>
     </section>
 
-    <!-- Chart + current reading -->
+    <!-- Single-ticker chart (below table) -->
     <section class="panel chart-panel">
       <div class="chart-header">
         <div>
@@ -73,7 +132,7 @@
           <span id="currentSignal" class="badge">—</span>
         </div>
       </div>
-      <div id="chartMessage" class="chart-message">Enter a symbol and press <b>Load</b> to begin.</div>
+      <div id="chartMessage" class="chart-message">Click a symbol in the table above, or enter one and press <b>Load</b>.</div>
       <div class="chart-wrap">
         <canvas id="rsiChart"></canvas>
       </div>
@@ -88,83 +147,26 @@
       <div id="watchlist" class="watchlist"></div>
       <p id="watchlistEmpty" class="muted small">No symbols yet. Load a symbol and click <b>+ Watchlist</b>.</p>
     </section>
-
-    <!-- Swing Scanner: Top 50 liquid tech -->
-    <section class="panel scanner-panel">
-      <div class="scanner-header">
-        <div>
-          <h2>Swing Scanner — Top 10 Liquid Tech</h2>
-          <span class="muted small">
-            Multi-timeframe RSI (1h + 4h) · ranked by Swing Score ·
-            <a href="#" id="formulaToggle">how the score works</a>
-          </span>
-        </div>
-        <div class="scanner-controls">
-          <label class="inline">Entry ≤ <input id="entryZone" type="number" value="35" min="0" max="50" /></label>
-          <label class="inline">Exit ≥ <input id="exitZone" type="number" value="65" min="50" max="100" /></label>
-          <label class="inline" title="API credits per minute. Free tier = 8. Raise for paid plans to scan faster.">
-            Credits/min <input id="creditsPerMin" type="number" value="8" min="1" max="5000" />
-          </label>
-          <div class="add-symbol">
-            <input id="addSymbolInput" type="text" placeholder="Add symbol…" autocomplete="off" spellcheck="false" />
-            <button id="addSymbolBtn" class="btn btn-ghost btn-sm">+ Add</button>
-          </div>
-          <button id="scanBtn" class="btn btn-primary">Scan Top 10</button>
-        </div>
-      </div>
-
-      <div id="formulaBox" class="formula-box hidden">
-        <p><b>Universe</b> — the 10 most liquid US-listed mega-cap technology stocks (NVDA, TSLA, AAPL, AMZN, MSFT, META, AMD, GOOGL, AVGO, NFLX). High dollar volume keeps spreads tight and slippage low.</p>
-        <p><b>Swing Score</b> = 100 − (0.6 × RSI<sub>4h</sub> + 0.4 × RSI<sub>1h</sub>). Lower RSI on both timeframes ⇒ more oversold ⇒ higher score ⇒ stronger long-entry setup. The 4h is weighted higher as the primary swing trend; the 1h times the entry.</p>
-        <p><b>Entry zone</b>: RSI ≤ <span class="rsi-entry">Entry</span> (oversold — look to enter long). <b>Exit zone</b>: RSI ≥ <span class="rsi-exit">Exit</span> (overbought — take profit / exit). Shown separately for 1h and 4h.</p>
-        <p><b>Signals</b> — <span class="sig sig-badge-strong-buy">STRONG BUY</span> 1h&nbsp;&amp;&nbsp;4h both in entry · <span class="sig sig-badge-buy">BUY ZONE</span> either in entry · <span class="sig sig-badge-exit">EXIT ZONE</span> either in exit · <span class="sig sig-badge-take-profit">TAKE PROFIT</span> both in exit · <span class="sig sig-badge-neutral">NEUTRAL</span> otherwise.</p>
-        <p class="muted small">Educational tool, not financial advice. Free tier (~8 credits/min) takes ~2–3 min for a full 20-credit scan (10 symbols × 1h + 4h); results are cached so they load instantly next visit. Raise Credits/min on a paid plan to scan in seconds.</p>
-      </div>
-
-      <div id="scanProgress" class="scan-progress hidden">
-        <div class="bar"><div id="scanBarFill" class="bar-fill"></div></div>
-        <span id="scanProgressText" class="muted small"></span>
-      </div>
-
-      <div class="table-wrap">
-        <table class="scan-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Symbol</th>
-              <th title="1-hour RSI(14)">RSI 1h</th>
-              <th title="4-hour RSI(14)">RSI 4h</th>
-              <th title="1h RSI in entry (oversold) zone">Entry 1h</th>
-              <th title="4h RSI in entry (oversold) zone">Entry 4h</th>
-              <th title="1h RSI in exit (overbought) zone">Exit 1h</th>
-              <th title="4h RSI in exit (overbought) zone">Exit 4h</th>
-              <th title="Swing Score — higher = stronger long-entry setup">Score</th>
-              <th>Signal</th>
-            </tr>
-          </thead>
-          <tbody id="scanBody"></tbody>
-        </table>
-      </div>
-      <p id="scanMeta" class="muted small"></p>
-    </section>
   </main>
 
   <!-- Settings modal -->
   <div id="settingsModal" class="modal hidden">
     <div class="modal-card">
-      <h2>API Key</h2>
+      <h2>API Keys</h2>
       <p class="muted small">
-        Your Twelve Data API key is stored only in this browser (<code>localStorage</code>).
-        It is never committed to the repository or sent anywhere except Twelve Data.
-        Get a free key at <a href="https://twelvedata.com/" target="_blank" rel="noopener">twelvedata.com</a>.
+        Keys are stored only in this browser (<code>localStorage</code>) — never committed to the repo.
       </p>
       <div class="field">
-        <label for="apiKeyInput">Twelve Data API Key</label>
-        <input id="apiKeyInput" type="password" placeholder="Paste your key here" autocomplete="off" />
+        <label for="finnhubKeyInput">Finnhub API Key <span class="muted">(fundamentals + RSI)</span></label>
+        <input id="finnhubKeyInput" type="password" placeholder="Finnhub key" autocomplete="off" />
+        <span class="muted small">Free key: <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io</a>. Market cap, price &amp; P/E are free; the RSI <code>/indicator</code> endpoint may need a paid plan.</span>
       </div>
-      <label class="checkbox">
-        <input id="showKeyToggle" type="checkbox" /> Show key
-      </label>
+      <div class="field">
+        <label for="tdKeyInput">Twelve Data API Key <span class="muted">(optional — RSI fallback)</span></label>
+        <input id="tdKeyInput" type="password" placeholder="Twelve Data key (optional)" autocomplete="off" />
+        <span class="muted small">Used for RSI if Finnhub indicators aren't available on your plan. Free key: <a href="https://twelvedata.com/" target="_blank" rel="noopener">twelvedata.com</a>.</span>
+      </div>
+      <label class="checkbox"><input id="showKeyToggle" type="checkbox" /> Show keys</label>
       <div class="modal-actions">
         <button id="clearKeyBtn" class="btn btn-ghost">Clear</button>
         <button id="saveKeyBtn" class="btn btn-primary">Save</button>
@@ -173,13 +175,15 @@
   </div>
 
   <footer class="footer muted small">
-    Data by <a href="https://twelvedata.com/" target="_blank" rel="noopener">Twelve Data</a> ·
-    Free tier is rate limited (~8 requests/min). Static dashboard — no server.
+    Fundamentals by <a href="https://finnhub.io/" target="_blank" rel="noopener">Finnhub</a> ·
+    RSI by Finnhub / <a href="https://twelvedata.com/" target="_blank" rel="noopener">Twelve Data</a> ·
+    Static dashboard — no server. Educational use only.
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <script src="js/data.js"></script>
   <script src="js/app.js"></script>
   <script src="js/scanner.js"></script>
 </body>
