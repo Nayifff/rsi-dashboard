@@ -15,6 +15,7 @@
 
 * { box-sizing: border-box; }
 
+html, body { max-width: 100%; overflow-x: hidden; }
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -35,17 +36,23 @@ a:hover { text-decoration: underline; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 22px;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 18px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 10;
 }
-.brand { display: flex; align-items: center; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand h1 { white-space: nowrap; }
 .brand h1 { font-size: 18px; margin: 0; font-weight: 600; }
 .logo { font-size: 22px; }
-.topbar-actions { display: flex; align-items: center; gap: 12px; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+/* Make Settings clearly visible */
+#settingsBtn { background: var(--panel-2); border-color: var(--accent); color: var(--text); }
+#settingsBtn:hover { background: var(--accent); color: #fff; }
 .api-status {
   font-size: 12px;
   padding: 3px 10px;
@@ -63,7 +70,7 @@ a:hover { text-decoration: underline; }
   margin: 0 auto;
   padding: 22px;
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   grid-template-areas:
     "scanner scanner"
     "controls controls"
@@ -77,7 +84,7 @@ a:hover { text-decoration: underline; }
 
 @media (max-width: 900px) {
   .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "scanner" "controls" "chart" "watchlist";
   }
 }
@@ -89,6 +96,7 @@ a:hover { text-decoration: underline; }
   border-radius: var(--radius);
   padding: 18px;
   box-shadow: var(--shadow);
+  min-width: 0; /* allow grid/flex children (e.g. wide table) to shrink & scroll */
 }
 
 /* Controls */
@@ -347,3 +355,44 @@ tr.sig-strong-buy td { background: rgba(46,160,67,.05); }
 tr.sig-take-profit td { background: rgba(248,81,73,.05); }
 
 .footer { text-align: center; padding: 20px; }
+
+/* ---- Mobile ---- */
+@media (max-width: 640px) {
+  .layout { padding: 14px; gap: 14px; }
+  .panel { padding: 14px; }
+  .topbar { padding: 10px 14px; }
+  .brand h1 { font-size: 16px; }
+  .topbar-actions { gap: 8px; }
+
+  /* Scanner header stacks; controls go full-width and wrap neatly */
+  .scanner-header { flex-direction: column; align-items: stretch; gap: 10px; }
+  .scanner-header h2 { font-size: 17px; }
+  .scanner-controls { gap: 8px; }
+  .scanner-controls .inline { flex: 1 1 44%; justify-content: space-between; }
+  .scanner-controls .inline input { width: 70px; }
+  .add-symbol { flex: 1 1 100%; }
+  .add-symbol input { flex: 1; width: auto; }
+  #runBtn { flex: 1 1 100%; }
+  #resetSymbolsBtn { flex: 0 0 auto; }
+
+  /* Single-ticker controls: each field flexes */
+  .controls { gap: 10px; }
+  .controls .field { flex: 1 1 30%; }
+  #symbolInput { width: 100%; }
+  .field-sm input { width: 100%; }
+  .field-actions { flex: 1 1 100%; }
+  .field-actions .btn { flex: 1; }
+
+  /* Chart + current reading stack */
+  .chart-header { flex-direction: column; gap: 8px; }
+  .current-reading { align-items: flex-start; text-align: left; }
+  .chart-wrap { height: 300px; }
+
+  .scan-table { min-width: 760px; } /* still scrolls horizontally, just tighter */
+  .modal-card { padding: 18px; }
+  .modal-card .muted.small, .formula-box { word-break: break-word; }
+}
+
+@media (max-width: 380px) {
+  .scanner-controls .inline { flex-basis: 100%; }
+}
