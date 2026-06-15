@@ -38,12 +38,13 @@
             <button id="addSymbolBtn" class="btn btn-ghost btn-sm">+ Add</button>
           </div>
           <button id="resetSymbolsBtn" class="btn btn-ghost btn-sm" title="Reset to default 10">↺ Reset</button>
-          <button id="runBtn" class="btn btn-primary">Run</button>
+          <button id="rescanAllBtn" class="btn btn-ghost btn-sm" title="Force-refresh every row (ignore cache)">↻ All</button>
+          <button id="runBtn" class="btn btn-primary" title="Fetch only new or stale rows">Run</button>
         </div>
       </div>
 
       <div id="formulaBox" class="formula-box hidden">
-        <p><b>Add / remove</b> any ticker, then press <b>Run</b> to fetch live data for the whole list.</p>
+        <p><b>Add / remove</b> any ticker. Adding one <b>auto-fetches just that ticker</b> — no need to re-run the rest. <b>Run</b> fetches only new or stale rows (older than 10 min); <b>↻ All</b> force-refreshes everything.</p>
         <p><b>Columns</b> — Price &amp; daily % change, Market Cap, Avg Volume (10-day, a liquidity gauge), P/E (all from Finnhub), plus RSI on the 1h and 4h timeframes.</p>
         <p><b>Swing Score</b> = 100 − (0.6 × RSI<sub>4h</sub> + 0.4 × RSI<sub>1h</sub>). Lower RSI on both timeframes ⇒ more oversold ⇒ higher score ⇒ stronger long-entry setup. 4h is weighted higher as the primary swing trend; 1h times the entry. The table is ranked by this score.</p>
         <p><b>Entry zone</b>: RSI ≤ Entry (oversold). <b>Exit zone</b>: RSI ≥ Exit (overbought). A filled dot = that timeframe is currently in the zone.</p>

@@ -167,18 +167,40 @@ function showProgress(done, total, label) {
 function hideProgress() { s$("scanProgress").classList.add("hidden"); }
 function setScanMeta(text) { s$("scanMeta").innerHTML = text; }
 
-// ---- Cache ----
-function cacheResults(rows, entry, exit) {
-  localStorage.setItem(SCAN_CACHE, JSON.stringify({
-    ts: Date.now(), entry, exit,
-    rows: rows.map((r) => ({
-      symbol: r.symbol, price: r.price, changePct: r.changePct, marketCap: r.marketCap,
-      avgVol: r.avgVol, pe: r.pe, rsi1h: r.rsi1h, rsi4h: r.rsi4h,
-    })),
-  }));
-}
+// ---- Cache (per-symbol timestamps so we only refetch what's stale) ----
+const SCAN_TTL_MS = 10 * 60 * 1000; // a row older than this is "stale"
 function loadCache() { try { return JSON.parse(localStorage.getItem(SCAN_CACHE)); } catch { return null; } }
+function cacheRowMap() {
+  const c = loadCache();
+  const map = {};
+  if (c && c.rows) c.rows.forEach((r) => { map[r.symbol] = r; });
+  return map;
+}
+// Merge freshly-fetched rows into the cache, stamping each with its own ts.
+function saveCacheRows(fresh, entry, exit) {
+  const map = cacheRowMap();
+  const now = Date.now();
+  fresh.forEach((d) => {
+    map[d.symbol] = {
+      symbol: d.symbol, price: d.price, changePct: d.changePct, marketCap: d.marketCap,
+      avgVol: d.avgVol, pe: d.pe, rsi1h: d.rsi1h, rsi4h: d.rsi4h, ts: now,
+    };
+  });
+  const keep = new Set(getSymbols());
+  const rows = Object.values(map).filter((r) => keep.has(r.symbol));
+  localStorage.setItem(SCAN_CACHE, JSON.stringify({ ts: now, entry, exit, rows }));
+}
+function isFresh(sym) {
+  const r = cacheRowMap()[sym];
+  return !!(r && r.ts && (Date.now() - r.ts) < SCAN_TTL_MS && (r.price != null || r.rsi1h != null));
+}
+function newestCacheTs() {
+  const c = loadCache();
+  if (!c || !c.rows || !c.rows.length) return null;
+  return c.rows.reduce((mx, r) => Math.max(mx, r.ts || 0), 0) || null;
+}
 function fmtAge(ts) {
+  if (!ts) return "never";
   const m = Math.round((Date.now() - ts) / 60000);
   if (m < 1) return "just now";
   if (m < 60) return `${m} min ago`;
@@ -206,53 +228,82 @@ async function fetchSymbol(sym) {
   return out;
 }
 
-// ---- Run ----
+// Show a row as loading (… in its data cells)
+function markRowLoading(sym) {
+  ["price", "changePct", "marketCap", "avgVol", "pe", "rsi1h", "rsi4h"].forEach((f) =>
+    updateCell(sym, f, "…", "num muted"));
+}
+// Paint a fetched row's cells in place
+function paintRow(sym, data, entry, exit) {
+  updateCell(sym, "price", fmtPrice(data.price));
+  updateCell(sym, "changePct", fmtPct(data.changePct), `num ${data.changePct >= 0 ? "pos" : data.changePct < 0 ? "neg" : "muted"}`);
+  updateCell(sym, "marketCap", fmtCap(data.marketCap));
+  updateCell(sym, "avgVol", fmtVol(data.avgVol));
+  updateCell(sym, "pe", fmtNum(data.pe, 1));
+  updateCell(sym, "rsi1h", fmtNum(data.rsi1h), `num ${rsiClass(data.rsi1h, entry, exit)}`);
+  updateCell(sym, "rsi4h", fmtNum(data.rsi4h), `num ${rsiClass(data.rsi4h, entry, exit)}`);
+}
+
+// Fetch a single symbol, store it, and re-render (used when adding a ticker)
+async function fetchOneAndStore(sym, entry, exit) {
+  D().finnhubThrottle.reset(); D().tdThrottle.reset();
+  markRowLoading(sym);
+  let data;
+  try { data = await fetchSymbol(sym); }
+  catch { data = { symbol: sym, price: null, changePct: null, marketCap: null, avgVol: null, pe: null, rsi1h: null, rsi4h: null }; }
+  saveCacheRows([data], entry, exit);
+  renderRows(buildRows(entry, exit), entry, exit);
+  return data;
+}
+
+// ---- Run (incremental: only missing/stale rows unless forceAll) ----
 let running = false;
-async function runScan() {
+async function runScan(forceAll = false) {
   if (running) return;
   if (!D().getFinnhubKey() && !D().getTdKey()) {
     setScanMeta("Add a Finnhub API key in ⚙️ Settings first (Twelve Data optional, for RSI fallback).");
     if (typeof window.openSettingsModal === "function") window.openSettingsModal();
     return;
   }
-  running = true;
   const { entry, exit } = getZones();
   const symbols = getSymbols();
+  const todo = forceAll ? symbols.slice() : symbols.filter((s) => !isFresh(s));
+  const cachedCount = symbols.length - todo.length;
+
+  if (!todo.length) {
+    setScanMeta(`All ${symbols.length} rows are up to date (fetched within ${SCAN_TTL_MS / 60000} min). Use ↻ All to force a refresh.`);
+    return;
+  }
+
+  running = true;
   s$("runBtn").disabled = true;
   s$("runBtn").textContent = "Running…";
   D().finnhubThrottle.reset(); D().tdThrottle.reset();
-
-  // Render placeholder rows in current order so cells can fill live
   renderRows(buildRows(entry, exit), entry, exit);
 
   const collected = [];
   let anyDenied = false, usedFallback = false;
-  for (let i = 0; i < symbols.length; i++) {
-    const sym = symbols[i];
-    showProgress(i, symbols.length, `Fetching ${sym} … (${i + 1}/${symbols.length})`);
+  for (let i = 0; i < todo.length; i++) {
+    const sym = todo[i];
+    showProgress(i, todo.length, `Fetching ${sym} … (${i + 1}/${todo.length}${cachedCount ? `, ${cachedCount} cached` : ""})`);
+    markRowLoading(sym);
     let data;
     try { data = await fetchSymbol(sym); }
     catch { data = { symbol: sym, price: null, changePct: null, marketCap: null, avgVol: null, pe: null, rsi1h: null, rsi4h: null }; }
     collected.push(data);
     if (data.denied) anyDenied = true;
     if (data.rsiSource === "twelvedata") usedFallback = true;
-    // live-update this row's cells
-    updateCell(sym, "price", fmtPrice(data.price));
-    updateCell(sym, "changePct", fmtPct(data.changePct), `num ${data.changePct >= 0 ? "pos" : data.changePct < 0 ? "neg" : "muted"}`);
-    updateCell(sym, "marketCap", fmtCap(data.marketCap));
-    updateCell(sym, "avgVol", fmtVol(data.avgVol));
-    updateCell(sym, "pe", fmtNum(data.pe, 1));
-    updateCell(sym, "rsi1h", fmtNum(data.rsi1h), `num ${rsiClass(data.rsi1h, entry, exit)}`);
-    updateCell(sym, "rsi4h", fmtNum(data.rsi4h), `num ${rsiClass(data.rsi4h, entry, exit)}`);
+    paintRow(sym, data, entry, exit);
   }
-  showProgress(symbols.length, symbols.length, "Done");
+  showProgress(todo.length, todo.length, "Done");
 
-  const rows = collected.map((r) => ({ ...r, ...evaluate(r.rsi1h, r.rsi4h, entry, exit) })).sort(scoreSort);
-  renderRows(rows, entry, exit);
-  cacheResults(rows, entry, exit);
+  saveCacheRows(collected, entry, exit);
+  renderRows(buildRows(entry, exit), entry, exit);
   hideProgress();
 
-  let note = `${rows.length} symbols · updated just now · ranked by Swing Score`;
+  let note = `Updated ${todo.length} symbol${todo.length > 1 ? "s" : ""}`;
+  if (cachedCount) note += ` · ${cachedCount} from cache`;
+  note += ` · ranked by Swing Score`;
   if (usedFallback) note += ` · RSI via Twelve Data fallback`;
   else if (anyDenied) note += ` · ⚠ Finnhub RSI not available on your plan (add a Twelve Data key for RSI)`;
   setScanMeta(note);
@@ -262,7 +313,7 @@ async function runScan() {
 }
 
 // ---- Add / remove / reset ----
-function addSymbol() {
+async function addSymbol() {
   const input = s$("addSymbolInput");
   const sym = (input.value || "").trim().toUpperCase();
   input.value = "";
@@ -273,7 +324,16 @@ function addSymbol() {
   setSymbols(list);
   const { entry, exit } = getZones();
   renderRows(buildRows(entry, exit), entry, exit);
-  setScanMeta(`Added ${sym}. Press Run to fetch its data. (${list.length} symbols)`);
+
+  // Smart: fetch only the new ticker — no need to re-run everything.
+  if (!D().getFinnhubKey() && !D().getTdKey()) {
+    setScanMeta(`Added ${sym}. Add an API key in ⚙️ Settings, then press Run.`);
+    return;
+  }
+  setScanMeta(`Fetching ${sym}…`);
+  const data = await fetchOneAndStore(sym, entry, exit);
+  const ok = data && (data.price != null || data.rsi1h != null);
+  setScanMeta(`Added ${sym}${ok ? "" : " (no data returned)"}. ${list.length} symbols · other rows untouched.`);
 }
 function removeSymbol(sym) {
   setSymbols(getSymbols().filter((s) => s !== sym));
@@ -298,12 +358,17 @@ function renderFromCache() {
   s$("entryZone").value = entry;
   s$("exitZone").value = exit;
   renderRows(buildRows(entry, exit), entry, exit);
-  if (cache && cache.rows) setScanMeta(`${getSymbols().length} symbols · updated ${fmtAge(cache.ts)} · ranked by Swing Score`);
-  else setScanMeta("No data yet. Add/remove symbols, then press Run.");
+  if (cache && cache.rows && cache.rows.length) {
+    const missing = getSymbols().filter((s) => !cacheRowMap()[s]).length;
+    let note = `${getSymbols().length} symbols · updated ${fmtAge(newestCacheTs())}`;
+    if (missing) note += ` · ${missing} not fetched yet — press Run`;
+    setScanMeta(note);
+  } else setScanMeta("No data yet. Add/remove symbols, then press Run.");
 }
 
 function initScanner() {
-  s$("runBtn").addEventListener("click", runScan);
+  s$("runBtn").addEventListener("click", () => runScan(false));
+  s$("rescanAllBtn").addEventListener("click", () => runScan(true));
   s$("addSymbolBtn").addEventListener("click", addSymbol);
   s$("addSymbolInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addSymbol(); });
   s$("resetSymbolsBtn").addEventListener("click", resetSymbols);

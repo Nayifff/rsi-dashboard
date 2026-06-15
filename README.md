@@ -67,6 +67,15 @@ Seeded with the 10 most liquid US-listed mega-cap tech stocks (NVDA, TSLA, AAPL,
 AMD, GOOGL, AVGO, NFLX) — fully editable. Use **+ Add** / the **×** on each row to customize, or
 **↺ Reset** to restore the default 10. Your list and last results persist between visits.
 
+### Smart fetching (incremental)
+
+The table caches each row with its own timestamp, so you never re-fetch more than you need:
+
+- **Adding a ticker auto-fetches just that ticker** — the rest of the table is untouched.
+- **Run** fetches only **new or stale** rows (older than 10 minutes); already-fresh rows are served
+  from cache, so re-running is fast and cheap on API credits.
+- **↻ All** force-refreshes every row (e.g., to pull fresh intraday prices on demand).
+
 ## Rate limits
 
 Finnhub free tier ≈ 60 calls/min; the dashboard throttles to ~55/min. Each symbol uses ~4 Finnhub
