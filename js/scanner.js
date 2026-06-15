@@ -32,6 +32,15 @@ const UNIVERSE = [
   "NVDA", "TSLA", "AAPL", "AMZN", "MSFT", "META", "AMD", "GOOGL", "AVGO", "NFLX",
 ];
 
+// User-added symbols (persisted). The scanned/displayed set = UNIVERSE + customs.
+const SCAN_CUSTOM = "scan_custom_symbols";
+const getCustoms = () => {
+  try { return JSON.parse(localStorage.getItem(SCAN_CUSTOM)) || []; } catch { return []; }
+};
+const setCustoms = (list) => localStorage.setItem(SCAN_CUSTOM, JSON.stringify(list));
+const isCustom = (sym) => !UNIVERSE.includes(sym);
+const activeUniverse = () => UNIVERSE.concat(getCustoms().filter((s) => !UNIVERSE.includes(s)));
+
 const scan$ = (id) => document.getElementById(id);
 
 const getScanKey = () => localStorage.getItem(SCAN_LS_KEY) || "";
@@ -138,12 +147,20 @@ function zoneCell(active, kind) {
   return `<span class="zone zone-off">–</span>`;
 }
 
+function symCell(s) {
+  const remove = isCustom(s)
+    ? ` <button class="sym-remove" data-remove="${s}" title="Remove ${s}">×</button>`
+    : "";
+  const tag = isCustom(s) ? ` <span class="sym-tag" title="Your symbol">★</span>` : "";
+  return `<button class="link-sym" data-sym="${s}">${s}</button>${tag}${remove}`;
+}
+
 function renderSkeleton() {
   const body = scan$("scanBody");
-  body.innerHTML = UNIVERSE.map((s) => `
+  body.innerHTML = activeUniverse().map((s) => `
     <tr id="row-${s}">
       <td class="rank">·</td>
-      <td class="sym"><button class="link-sym" data-sym="${s}">${s}</button></td>
+      <td class="sym">${symCell(s)}</td>
       <td id="c-${s}-rsi1h" class="num muted">…</td>
       <td id="c-${s}-rsi4h" class="num muted">…</td>
       <td id="c-${s}-e1h" class="zcell"></td>
@@ -153,7 +170,7 @@ function renderSkeleton() {
       <td id="c-${s}-score" class="num muted">…</td>
       <td id="c-${s}-signal" class="sigcell"></td>
     </tr>`).join("");
-  wireSymbolClicks();
+  wireRowControls();
 }
 
 function updateRsiCell(symbol, interval, result, entry, exit) {
@@ -174,7 +191,7 @@ function renderRows(rows, entry, exit) {
   body.innerHTML = rows.map((r, i) => `
     <tr id="row-${r.symbol}" class="sig-${r.signal.cls}">
       <td class="rank">${i + 1}</td>
-      <td class="sym"><button class="link-sym" data-sym="${r.symbol}">${r.symbol}</button></td>
+      <td class="sym">${symCell(r.symbol)}</td>
       <td class="num ${rsiClass(r.rsi1h, entry, exit)}">${fmt(r.rsi1h)}</td>
       <td class="num ${rsiClass(r.rsi4h, entry, exit)}">${fmt(r.rsi4h)}</td>
       <td class="zcell">${zoneCell(r.entry1h, "entry")}</td>
@@ -184,10 +201,10 @@ function renderRows(rows, entry, exit) {
       <td class="num score">${r.score === null ? "—" : r.score.toFixed(1)}</td>
       <td class="sigcell"><span class="sig sig-badge-${r.signal.cls}">${r.signal.label}</span></td>
     </tr>`).join("");
-  wireSymbolClicks();
+  wireRowControls();
 }
 
-function wireSymbolClicks() {
+function wireRowControls() {
   document.querySelectorAll(".link-sym").forEach((btn) => {
     btn.addEventListener("click", () => {
       const sym = btn.dataset.sym;
@@ -195,6 +212,12 @@ function wireSymbolClicks() {
       if (typeof window.loadSymbolFromScanner === "function") {
         window.loadSymbolFromScanner(sym);
       }
+    });
+  });
+  document.querySelectorAll(".sym-remove").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeCustomSymbol(btn.dataset.remove);
     });
   });
 }
@@ -230,6 +253,33 @@ function fmtAge(ts) {
   return `${h}h ${mins % 60}m ago`;
 }
 
+const scoreSort = (a, b) => {
+  if (a.score === null) return 1;
+  if (b.score === null) return -1;
+  return b.score - a.score;
+};
+const getZones = () => ({
+  entry: clamp(parseFloat(scan$("entryZone").value) || 35, 0, 50),
+  exit: clamp(parseFloat(scan$("exitZone").value) || 65, 50, 100),
+});
+const getPerMin = () => clamp(parseInt(scan$("creditsPerMin").value, 10) || 8, 1, 5000);
+
+// Fetch one symbol's 1h + 4h RSI (2 credits), respecting the throttle.
+async function fetchOne(sym, perMin) {
+  const out = { symbol: sym, rsi1h: null, rsi4h: null };
+  for (const interval of ["1h", "4h"]) {
+    await spendCredits(1, perMin);
+    try {
+      const map = await fetchRsiBatch([sym], interval);
+      const r = map[sym];
+      if (r && r.rsi !== undefined && !Number.isNaN(r.rsi)) {
+        out[interval === "1h" ? "rsi1h" : "rsi4h"] = r.rsi;
+      }
+    } catch { /* leave null */ }
+  }
+  return out;
+}
+
 // ---- Main scan ----
 let scanning = false;
 async function runScan() {
@@ -240,88 +290,131 @@ async function runScan() {
     return;
   }
   scanning = true;
-  const perMin = clamp(parseInt(scan$("creditsPerMin").value, 10) || 8, 1, 5000);
-  const entry = clamp(parseFloat(scan$("entryZone").value) || 35, 0, 50);
-  const exit = clamp(parseFloat(scan$("exitZone").value) || 65, 50, 100);
-  // One symbol per request: uses Twelve Data's standard (non-keyed) response,
-  // which is the verified format. Batching multiple symbols wouldn't save any
-  // rate-limit credits (N symbols still costs N credits), so singles are the
-  // strictly more robust choice for a 10-symbol universe.
-  const maxBatch = 1;
+  const perMin = getPerMin();
+  const { entry, exit } = getZones();
+  const universe = activeUniverse();
 
   scan$("scanBtn").disabled = true;
   scan$("scanBtn").textContent = "Scanning…";
   renderSkeleton();
   resetCredits();
 
-  const results = Object.fromEntries(UNIVERSE.map((s) => [s, { symbol: s, rsi1h: null, rsi4h: null }]));
-  const totalCredits = UNIVERSE.length * 2;
+  const results = Object.fromEntries(universe.map((s) => [s, { symbol: s, rsi1h: null, rsi4h: null }]));
+  const totalCredits = universe.length * 2;
   let done = 0;
   showProgress(0, totalCredits, perMin);
 
+  // One symbol per request: uses Twelve Data's verified non-keyed response.
+  // Batching wouldn't save rate-limit credits (N symbols = N credits anyway).
   for (const interval of ["1h", "4h"]) {
-    for (const c of chunk(UNIVERSE, maxBatch)) {
-      await spendCredits(c.length, perMin);
-      let map;
-      try { map = await fetchRsiBatch(c, interval); }
-      catch (e) { map = Object.fromEntries(c.map((s) => [s, { error: e.message }])); }
-      for (const s of c) {
-        const r = map[s];
-        if (r && r.rsi !== undefined && !Number.isNaN(r.rsi)) {
-          results[s][interval === "1h" ? "rsi1h" : "rsi4h"] = r.rsi;
-        }
-        updateRsiCell(s, interval, r, entry, exit);
+    for (const s of universe) {
+      await spendCredits(1, perMin);
+      let r;
+      try { r = (await fetchRsiBatch([s], interval))[s]; }
+      catch (e) { r = { error: e.message }; }
+      if (r && r.rsi !== undefined && !Number.isNaN(r.rsi)) {
+        results[s][interval === "1h" ? "rsi1h" : "rsi4h"] = r.rsi;
       }
-      done += c.length;
+      updateRsiCell(s, interval, r, entry, exit);
+      done += 1;
       showProgress(done, totalCredits, perMin);
     }
   }
 
-  const rows = UNIVERSE.map((s) => {
-    const r = results[s];
-    return { ...r, ...evaluate(r.rsi1h, r.rsi4h, entry, exit) };
-  });
-  rows.sort((a, b) => {
-    if (a.score === null) return 1;
-    if (b.score === null) return -1;
-    return b.score - a.score;
-  });
+  const rows = universe
+    .map((s) => ({ ...results[s], ...evaluate(results[s].rsi1h, results[s].rsi4h, entry, exit) }))
+    .sort(scoreSort);
 
   renderRows(rows, entry, exit);
   cacheResults(rows, entry, exit);
   hideProgress();
-  setScanMeta(`Scanned ${UNIVERSE.length} symbols · updated just now · ranked by Swing Score (most oversold first)`);
+  setScanMeta(`Scanned ${universe.length} symbols · updated just now · ranked by Swing Score (most oversold first)`);
   scan$("scanBtn").disabled = false;
   scan$("scanBtn").textContent = "Rescan";
   scanning = false;
 }
 
-// ---- Render from cache on load ----
+// Build display rows for the full active universe, pulling RSI from cache where
+// available (so newly-added symbols appear immediately as "—" until scanned).
+function buildRows(entry, exit) {
+  const cache = loadCache();
+  const byCache = {};
+  if (cache && cache.rows) cache.rows.forEach((r) => { byCache[r.symbol] = r; });
+  return activeUniverse()
+    .map((s) => {
+      const c = byCache[s] || { rsi1h: null, rsi4h: null };
+      return { symbol: s, rsi1h: c.rsi1h ?? null, rsi4h: c.rsi4h ?? null,
+        ...evaluate(c.rsi1h, c.rsi4h, entry, exit) };
+    })
+    .sort(scoreSort);
+}
+
 function renderFromCache() {
   const cache = loadCache();
-  if (!cache || !cache.rows) {
-    setScanMeta("No scan yet. Click “Scan Top 10” to rank the universe by Swing Score.");
-    renderSkeleton();
-    return;
-  }
-  const entry = cache.entry ?? 35;
-  const exit = cache.exit ?? 65;
+  const entry = cache?.entry ?? 35;
+  const exit = cache?.exit ?? 65;
   scan$("entryZone").value = entry;
   scan$("exitZone").value = exit;
-  const rows = cache.rows.map((r) => ({ ...r, ...evaluate(r.rsi1h, r.rsi4h, entry, exit) }));
-  rows.sort((a, b) => {
-    if (a.score === null) return 1;
-    if (b.score === null) return -1;
-    return b.score - a.score;
-  });
+  const rows = buildRows(entry, exit);
   renderRows(rows, entry, exit);
-  scan$("scanBtn").textContent = "Rescan";
-  setScanMeta(`${rows.length} symbols · updated ${fmtAge(cache.ts)} · ranked by Swing Score (most oversold first)`);
+  if (cache && cache.rows) {
+    scan$("scanBtn").textContent = "Rescan";
+    setScanMeta(`${rows.length} symbols · updated ${fmtAge(cache.ts)} · ranked by Swing Score (most oversold first)`);
+  } else {
+    setScanMeta("No scan yet. Click “Scan” to rank the universe by Swing Score.");
+  }
+}
+
+// ---- Add / remove custom symbols ----
+async function addCustomSymbol() {
+  const input = scan$("addSymbolInput");
+  const sym = (input.value || "").trim().toUpperCase();
+  input.value = "";
+  if (!sym) return;
+  if (activeUniverse().includes(sym)) { setScanMeta(`${sym} is already in the table.`); return; }
+
+  const customs = getCustoms();
+  customs.push(sym);
+  setCustoms(customs);
+
+  const { entry, exit } = getZones();
+  renderRows(buildRows(entry, exit), entry, exit); // show immediately as "—"
+
+  if (!getScanKey()) { setScanMeta(`Added ${sym}. Set your API key, then Scan to populate it.`); return; }
+
+  // Fetch just the new symbol so it fills in without a full rescan.
+  setScanMeta(`Fetching ${sym}…`);
+  const data = await fetchOne(sym, getPerMin());
+  // Merge into cache
+  const cache = loadCache() || { entry, exit, rows: [] };
+  cache.rows = (cache.rows || []).filter((r) => r.symbol !== sym);
+  cache.rows.push({ symbol: sym, rsi1h: data.rsi1h, rsi4h: data.rsi4h });
+  cache.ts = cache.ts || Date.now();
+  localStorage.setItem(SCAN_CACHE, JSON.stringify(cache));
+  renderRows(buildRows(entry, exit), entry, exit);
+  setScanMeta(`Added ${sym}. ${activeUniverse().length} symbols in the table.`);
+}
+
+function removeCustomSymbol(sym) {
+  setCustoms(getCustoms().filter((s) => s !== sym));
+  // Drop it from cache too
+  const cache = loadCache();
+  if (cache && cache.rows) {
+    cache.rows = cache.rows.filter((r) => r.symbol !== sym);
+    localStorage.setItem(SCAN_CACHE, JSON.stringify(cache));
+  }
+  const { entry, exit } = getZones();
+  renderRows(buildRows(entry, exit), entry, exit);
+  setScanMeta(`Removed ${sym}. ${activeUniverse().length} symbols in the table.`);
 }
 
 // ---- Init ----
 function initScanner() {
   scan$("scanBtn").addEventListener("click", runScan);
+  scan$("addSymbolBtn").addEventListener("click", addCustomSymbol);
+  scan$("addSymbolInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") addCustomSymbol();
+  });
   scan$("formulaToggle").addEventListener("click", (e) => {
     e.preventDefault();
     scan$("formulaBox").classList.toggle("hidden");

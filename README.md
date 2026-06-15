@@ -12,7 +12,8 @@ step — so it deploys to **GitHub Pages** as-is.
 - Configurable **symbol**, **interval** (1min → 1month), and RSI **period** (default 14)
 - Live **latest RSI** reading with a colored signal badge (Overbought / Neutral / Oversold)
 - 🎯 **Swing Scanner** — ranks the 10 most liquid mega-cap tech stocks by a multi-timeframe RSI
-  **Swing Score**, showing the **entry / exit zone** on both the **1h and 4h** timeframes
+  **Swing Score**, showing the **entry / exit zone** on both the **1h and 4h** timeframes.
+  Add your **own symbols** to the table with the *Add symbol* box (★-tagged, removable; persisted)
 - ⭐ **Watchlist** — track multiple symbols; each shows its current RSI, color-coded
 - 🔒 API key stored only in your browser's `localStorage` — **never committed to the repo**
 - Settings, scan results & last-used inputs persist between visits

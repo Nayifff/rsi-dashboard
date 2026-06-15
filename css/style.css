@@ -242,6 +242,15 @@ code {
   font-size: 12px; color: var(--muted);
 }
 .scanner-controls .inline input { width: 64px; padding: 6px 8px; }
+.add-symbol { display: flex; align-items: center; gap: 6px; }
+.add-symbol input { width: 120px; text-transform: uppercase; padding: 6px 8px; }
+
+.sym-tag { color: var(--yellow); font-size: 11px; }
+.sym-remove {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px;
+}
+.sym-remove:hover { color: var(--red); }
 
 .formula-box {
   background: var(--panel-2);
