@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RSI Dashboard</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">📈</span>
+      <h1>RSI Dashboard</h1>
+    </div>
+    <div class="topbar-actions">
+      <span id="apiStatus" class="api-status" title="API key status">No API key</span>
+      <button id="settingsBtn" class="btn btn-ghost" title="API key settings">⚙️ Settings</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Controls -->
+    <section class="panel controls">
+      <div class="field">
+        <label for="symbolInput">Symbol</label>
+        <input id="symbolInput" type="text" placeholder="AAPL" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="intervalSelect">Interval</label>
+        <select id="intervalSelect">
+          <option value="1min">1 min</option>
+          <option value="5min">5 min</option>
+          <option value="15min">15 min</option>
+          <option value="30min">30 min</option>
+          <option value="45min">45 min</option>
+          <option value="1h">1 hour</option>
+          <option value="2h">2 hour</option>
+          <option value="4h">4 hour</option>
+          <option value="1day" selected>1 day</option>
+          <option value="1week">1 week</option>
+          <option value="1month">1 month</option>
+        </select>
+      </div>
+      <div class="field field-sm">
+        <label for="periodInput">Period</label>
+        <input id="periodInput" type="number" min="2" max="100" value="14" />
+      </div>
+      <div class="field field-sm">
+        <label for="overboughtInput">Overbought</label>
+        <input id="overboughtInput" type="number" min="50" max="100" value="70" />
+      </div>
+      <div class="field field-sm">
+        <label for="oversoldInput">Oversold</label>
+        <input id="oversoldInput" type="number" min="0" max="50" value="30" />
+      </div>
+      <div class="field field-actions">
+        <button id="loadBtn" class="btn btn-primary">Load</button>
+        <button id="addBtn" class="btn btn-ghost" title="Add to watchlist">+ Watchlist</button>
+      </div>
+    </section>
+
+    <!-- Chart + current reading -->
+    <section class="panel chart-panel">
+      <div class="chart-header">
+        <div>
+          <h2 id="chartSymbol">—</h2>
+          <span id="chartMeta" class="muted"></span>
+        </div>
+        <div class="current-reading">
+          <span class="reading-label">Latest RSI</span>
+          <span id="currentRsi" class="reading-value">—</span>
+          <span id="currentSignal" class="badge">—</span>
+        </div>
+      </div>
+      <div id="chartMessage" class="chart-message">Enter a symbol and press <b>Load</b> to begin.</div>
+      <div class="chart-wrap">
+        <canvas id="rsiChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Watchlist -->
+    <section class="panel watchlist-panel">
+      <div class="watchlist-header">
+        <h2>Watchlist</h2>
+        <button id="refreshAllBtn" class="btn btn-ghost btn-sm" title="Refresh all">↻ Refresh</button>
+      </div>
+      <div id="watchlist" class="watchlist"></div>
+      <p id="watchlistEmpty" class="muted small">No symbols yet. Load a symbol and click <b>+ Watchlist</b>.</p>
+    </section>
+  </main>
+
+  <!-- Settings modal -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-card">
+      <h2>API Key</h2>
+      <p class="muted small">
+        Your Twelve Data API key is stored only in this browser (<code>localStorage</code>).
+        It is never committed to the repository or sent anywhere except Twelve Data.
+        Get a free key at <a href="https://twelvedata.com/" target="_blank" rel="noopener">twelvedata.com</a>.
+      </p>
+      <div class="field">
+        <label for="apiKeyInput">Twelve Data API Key</label>
+        <input id="apiKeyInput" type="password" placeholder="Paste your key here" autocomplete="off" />
+      </div>
+      <label class="checkbox">
+        <input id="showKeyToggle" type="checkbox" /> Show key
+      </label>
+      <div class="modal-actions">
+        <button id="clearKeyBtn" class="btn btn-ghost">Clear</button>
+        <button id="saveKeyBtn" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer muted small">
+    Data by <a href="https://twelvedata.com/" target="_blank" rel="noopener">Twelve Data</a> ·
+    Free tier is rate limited (~8 requests/min). Static dashboard — no server.
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

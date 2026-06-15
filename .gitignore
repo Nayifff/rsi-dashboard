@@ -1,0 +1,4 @@
+# No secrets are stored in files — the API key lives in browser localStorage only.
+.DS_Store
+*.log
+node_modules/
