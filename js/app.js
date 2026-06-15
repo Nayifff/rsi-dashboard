@@ -366,4 +366,15 @@ function init() {
   if (getKey() && getWatchlist().length) refreshWatchlistValues();
 }
 
+// ---- Bridges for scanner.js ----
+window.openSettingsModal = openSettings;
+window.loadSymbolFromScanner = function (symbol) {
+  el.symbol.value = symbol;
+  // Swing scanner is built on 1h/4h; default the chart to 4h (primary swing trend)
+  el.interval.value = "4h";
+  saveSettings();
+  loadSymbol(symbol, "4h", el.period.value);
+  document.querySelector(".chart-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
 document.addEventListener("DOMContentLoaded", init);

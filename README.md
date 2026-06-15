@@ -11,9 +11,46 @@ step — so it deploys to **GitHub Pages** as-is.
 - 📈 RSI line chart with shaded **overbought / oversold** zones (configurable thresholds)
 - Configurable **symbol**, **interval** (1min → 1month), and RSI **period** (default 14)
 - Live **latest RSI** reading with a colored signal badge (Overbought / Neutral / Oversold)
+- 🎯 **Swing Scanner** — ranks the 10 most liquid mega-cap tech stocks by a multi-timeframe RSI
+  **Swing Score**, showing the **entry / exit zone** on both the **1h and 4h** timeframes
 - ⭐ **Watchlist** — track multiple symbols; each shows its current RSI, color-coded
 - 🔒 API key stored only in your browser's `localStorage` — **never committed to the repo**
-- Settings & last-used inputs persist between visits
+- Settings, scan results & last-used inputs persist between visits
+
+## Swing Scanner — the formula
+
+**Universe** — the 10 most liquid US-listed mega-cap technology stocks (NVDA, TSLA, AAPL, AMZN,
+MSFT, META, AMD, GOOGL, AVGO, NFLX). High daily dollar volume keeps spreads tight and slippage
+low — the practical definition of "highly liquid" for swing trading.
+
+**Swing Score (0–100)**
+
+```
+score = 100 − (0.6 × RSI_4h + 0.4 × RSI_1h)
+```
+
+Lower RSI on both timeframes ⇒ more oversold ⇒ higher score ⇒ stronger long-entry setup. The 4h
+is weighted higher (0.6) as the primary swing trend; the 1h (0.4) times the entry. The table is
+ranked by score, so the best long-entry candidates sit at the top.
+
+- **Entry zone** — RSI ≤ *Entry* threshold (oversold; default 35). Look to enter long.
+- **Exit zone** — RSI ≥ *Exit* threshold (overbought; default 65). Take profit / exit.
+
+Both zones are shown separately for the **1h** and **4h** timeframes. Signals:
+
+| Signal | Meaning |
+| --- | --- |
+| **STRONG BUY** | 1h **and** 4h both in entry zone (aligned, highest conviction) |
+| **BUY ZONE** | either 1h or 4h in entry zone |
+| **EXIT ZONE** | either 1h or 4h in exit zone |
+| **TAKE PROFIT** | 1h **and** 4h both in exit zone |
+| **NEUTRAL** | otherwise |
+
+> Educational tool — not financial advice.
+
+A full scan is 10 symbols × 2 timeframes = **20 API credits**. On the free tier (~8 credits/min)
+that takes ~2–3 minutes; results are cached so they load instantly afterward. Raise **Credits/min**
+in the scanner header on a paid plan to scan in seconds.
 
 ## Security note about the API key
 

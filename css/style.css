@@ -66,17 +66,19 @@ a:hover { text-decoration: underline; }
   grid-template-columns: 1fr 320px;
   grid-template-areas:
     "controls controls"
-    "chart watchlist";
+    "chart watchlist"
+    "scanner scanner";
   gap: 18px;
 }
 .controls { grid-area: controls; }
 .chart-panel { grid-area: chart; }
 .watchlist-panel { grid-area: watchlist; }
+.scanner-panel { grid-area: scanner; }
 
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
-    grid-template-areas: "controls" "chart" "watchlist";
+    grid-template-areas: "controls" "chart" "watchlist" "scanner";
   }
 }
 
@@ -223,5 +225,107 @@ code {
   border-radius: 4px;
   font-size: 12px;
 }
+
+/* ---- Swing Scanner ---- */
+.scanner-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.scanner-header h2 { margin: 0 0 2px; font-size: 18px; }
+.scanner-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.scanner-controls .inline {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted);
+}
+.scanner-controls .inline input { width: 64px; padding: 6px 8px; }
+
+.formula-box {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.formula-box.hidden { display: none; }
+.formula-box p { margin: 0 0 8px; }
+.formula-box p:last-child { margin-bottom: 0; }
+.formula-box .rsi-entry { color: var(--green); font-weight: 600; }
+.formula-box .rsi-exit { color: var(--red); font-weight: 600; }
+
+/* Progress bar */
+.scan-progress { margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
+.scan-progress.hidden { display: none; }
+.bar { height: 8px; background: var(--panel-2); border-radius: 6px; overflow: hidden; }
+.bar-fill { height: 100%; width: 0; background: var(--accent); transition: width .3s ease; }
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+.scan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 720px;
+}
+.scan-table th, .scan-table td {
+  padding: 8px 10px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.scan-table th {
+  position: sticky; top: 0;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  font-weight: 600;
+  z-index: 1;
+}
+.scan-table td.rank { color: var(--muted); width: 34px; }
+.scan-table td.sym { text-align: left; }
+.scan-table td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+.scan-table td.num.muted { font-weight: 400; }
+.scan-table td.score { color: var(--accent); }
+.scan-table tbody tr:hover { background: rgba(255,255,255,.03); }
+
+.link-sym {
+  background: none; border: none; color: var(--text);
+  font-weight: 700; font-size: 13px; cursor: pointer; padding: 0;
+}
+.link-sym:hover { color: var(--accent); text-decoration: underline; }
+
+.rsi-entry { color: var(--green); }
+.rsi-exit { color: var(--red); }
+
+/* Zone cells */
+.zone {
+  display: inline-block; min-width: 48px;
+  padding: 2px 6px; border-radius: 5px;
+  font-size: 11px; font-weight: 700;
+}
+.zone-entry { background: rgba(46,160,67,.18); color: var(--green); }
+.zone-exit { background: rgba(248,81,73,.18); color: var(--red); }
+.zone-off { color: var(--border); font-weight: 400; }
+
+/* Signal badges */
+.sig {
+  display: inline-block; padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em;
+}
+.sig-badge-strong-buy { background: var(--green); color: #fff; }
+.sig-badge-buy { background: rgba(46,160,67,.18); color: var(--green); border: 1px solid var(--green); }
+.sig-badge-exit { background: rgba(210,153,34,.16); color: var(--yellow); border: 1px solid var(--yellow); }
+.sig-badge-take-profit { background: var(--red); color: #fff; }
+.sig-badge-neutral { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); }
+
+/* subtle row tint by signal */
+tr.sig-strong-buy td { background: rgba(46,160,67,.05); }
+tr.sig-take-profit td { background: rgba(248,81,73,.05); }
 
 .footer { text-align: center; padding: 20px; }

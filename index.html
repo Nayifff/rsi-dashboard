@@ -88,6 +88,61 @@
       <div id="watchlist" class="watchlist"></div>
       <p id="watchlistEmpty" class="muted small">No symbols yet. Load a symbol and click <b>+ Watchlist</b>.</p>
     </section>
+
+    <!-- Swing Scanner: Top 50 liquid tech -->
+    <section class="panel scanner-panel">
+      <div class="scanner-header">
+        <div>
+          <h2>Swing Scanner — Top 10 Liquid Tech</h2>
+          <span class="muted small">
+            Multi-timeframe RSI (1h + 4h) · ranked by Swing Score ·
+            <a href="#" id="formulaToggle">how the score works</a>
+          </span>
+        </div>
+        <div class="scanner-controls">
+          <label class="inline">Entry ≤ <input id="entryZone" type="number" value="35" min="0" max="50" /></label>
+          <label class="inline">Exit ≥ <input id="exitZone" type="number" value="65" min="50" max="100" /></label>
+          <label class="inline" title="API credits per minute. Free tier = 8. Raise for paid plans to scan faster.">
+            Credits/min <input id="creditsPerMin" type="number" value="8" min="1" max="5000" />
+          </label>
+          <button id="scanBtn" class="btn btn-primary">Scan Top 10</button>
+        </div>
+      </div>
+
+      <div id="formulaBox" class="formula-box hidden">
+        <p><b>Universe</b> — the 10 most liquid US-listed mega-cap technology stocks (NVDA, TSLA, AAPL, AMZN, MSFT, META, AMD, GOOGL, AVGO, NFLX). High dollar volume keeps spreads tight and slippage low.</p>
+        <p><b>Swing Score</b> = 100 − (0.6 × RSI<sub>4h</sub> + 0.4 × RSI<sub>1h</sub>). Lower RSI on both timeframes ⇒ more oversold ⇒ higher score ⇒ stronger long-entry setup. The 4h is weighted higher as the primary swing trend; the 1h times the entry.</p>
+        <p><b>Entry zone</b>: RSI ≤ <span class="rsi-entry">Entry</span> (oversold — look to enter long). <b>Exit zone</b>: RSI ≥ <span class="rsi-exit">Exit</span> (overbought — take profit / exit). Shown separately for 1h and 4h.</p>
+        <p><b>Signals</b> — <span class="sig sig-badge-strong-buy">STRONG BUY</span> 1h&nbsp;&amp;&nbsp;4h both in entry · <span class="sig sig-badge-buy">BUY ZONE</span> either in entry · <span class="sig sig-badge-exit">EXIT ZONE</span> either in exit · <span class="sig sig-badge-take-profit">TAKE PROFIT</span> both in exit · <span class="sig sig-badge-neutral">NEUTRAL</span> otherwise.</p>
+        <p class="muted small">Educational tool, not financial advice. Free tier (~8 credits/min) takes ~2–3 min for a full 20-credit scan (10 symbols × 1h + 4h); results are cached so they load instantly next visit. Raise Credits/min on a paid plan to scan in seconds.</p>
+      </div>
+
+      <div id="scanProgress" class="scan-progress hidden">
+        <div class="bar"><div id="scanBarFill" class="bar-fill"></div></div>
+        <span id="scanProgressText" class="muted small"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="scan-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Symbol</th>
+              <th title="1-hour RSI(14)">RSI 1h</th>
+              <th title="4-hour RSI(14)">RSI 4h</th>
+              <th title="1h RSI in entry (oversold) zone">Entry 1h</th>
+              <th title="4h RSI in entry (oversold) zone">Entry 4h</th>
+              <th title="1h RSI in exit (overbought) zone">Exit 1h</th>
+              <th title="4h RSI in exit (overbought) zone">Exit 4h</th>
+              <th title="Swing Score — higher = stronger long-entry setup">Score</th>
+              <th>Signal</th>
+            </tr>
+          </thead>
+          <tbody id="scanBody"></tbody>
+        </table>
+      </div>
+      <p id="scanMeta" class="muted small"></p>
+    </section>
   </main>
 
   <!-- Settings modal -->
@@ -122,5 +177,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/scanner.js"></script>
 </body>
 </html>
