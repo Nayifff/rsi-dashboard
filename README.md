@@ -17,6 +17,34 @@ browser — no server, no build step — so it deploys to **GitHub Pages** as-is
 - ⭐ **Watchlist** — track individual symbols with their current RSI.
 - 🔒 API keys stored only in your browser's `localStorage` — **never committed to the repo**.
 
+## Two pages
+
+- **`index.html`** — the dashboard: editable stock table (fundamentals + RSI) and single-ticker chart.
+- **`scanner.html`** — the **Full RSI Scanner**: scan a universe of liquid US stocks for RSI
+  entry/exit setups. Linked from the dashboard top bar ("Full Scanner →").
+
+### Full Scanner (no backend, no database)
+
+Implements the candle-based approach so you never call a premium RSI endpoint:
+
+1. **Universe** — a curated list of ~120 liquid US stocks (editable; paste your own 500–1000).
+2. Pull **Twelve Data candles** (`/time_series`, free) for 1h — and 4h unless *Cheap mode* is on.
+3. **Compute RSI in the browser** (Wilder's). *Cheap mode* derives 4h from 1h candles = **1 credit/stock**;
+   off = native 1h + 4h = 2 credits/stock.
+4. **Filter** — Entry: `RSI 1h < 35 AND RSI 4h < 35` · Exit: `RSI 1h > 65 OR RSI 4h > 65`.
+5. **Sort by Swing Score**, show **top N** (default 30; 5–100).
+
+It's browser-only — **`localStorage` is the cache ("DB")**. Each symbol's RSI is stored with a
+timestamp; **Run Scan** refetches only rows older than the *Cache TTL* (default 30 min), **↻ Force all**
+refetches everything. A **credit meter** tracks usage against the free 800/day budget, and
+**Auto-scan every N min** approximates a cron *while the tab stays open* (no server = no true cron).
+Click any result symbol to open it on the dashboard chart.
+
+> Scaling note: 50 stocks in cheap mode ≈ 50 credits ≈ ~6 min on the free tier. Scanning 500–1000
+> stocks needs a paid plan (Twelve Data **Grow**, ~$29/mo: higher per-minute, no daily cap). True
+> 24/7 server-side scanning of thousands of tickers would require a small backend (serverless cron +
+> store) — that can't run on GitHub Pages, but everything else here does.
+
 ## Data sources & API keys
 
 Open **⚙️ Settings** and add your keys (stored only in your browser):

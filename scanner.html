@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Full RSI Scanner</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🛰️</span>
+      <h1>Full RSI Scanner</h1>
+      <nav class="topnav"><a href="index.html">← Dashboard</a></nav>
+    </div>
+    <div class="topbar-actions">
+      <span id="apiStatus" class="api-status">No API key</span>
+      <button id="settingsBtn" class="btn btn-ghost">⚙️ Settings</button>
+    </div>
+  </header>
+
+  <main class="layout-single">
+    <!-- How it works / no-DB note -->
+    <section class="panel">
+      <h2 class="sec-title">Scan liquid US stocks for RSI entry/exit setups</h2>
+      <p class="muted small">
+        Pulls <b>Twelve Data candles</b> (1h, optionally 4h) → computes <b>RSI in your browser</b> →
+        filters <b>Entry: RSI 1h &amp; 4h &lt; 35</b> · <b>Exit: RSI 1h or 4h &gt; 65</b> → sorts by score → top N.
+        No server, no database — results are cached in this browser (<code>localStorage</code>), so re-scans
+        only refetch stale rows. Auto-scan keeps a cron-like cadence while the tab is open.
+      </p>
+      <div id="creditMeter" class="credit-meter">Credits used today: 0 / 800</div>
+    </section>
+
+    <!-- Controls -->
+    <section class="panel">
+      <div class="scan-grid">
+        <label class="fld">Scan top N
+          <input id="scanCap" type="number" value="50" min="1" max="2000" title="How many of the universe to scan" />
+        </label>
+        <label class="fld">Show top
+          <input id="topN" type="number" value="30" min="5" max="100" title="Max rows to display" />
+        </label>
+        <label class="fld">Filter
+          <select id="signalFilter">
+            <option value="all">Entry + Exit</option>
+            <option value="entry">Entry only</option>
+            <option value="exit">Exit only</option>
+          </select>
+        </label>
+        <label class="fld">Entry &lt;
+          <input id="entryTh" type="number" value="35" min="0" max="50" />
+        </label>
+        <label class="fld">Exit &gt;
+          <input id="exitTh" type="number" value="65" min="50" max="100" />
+        </label>
+        <label class="fld">RSI period
+          <input id="periodInput" type="number" value="14" min="2" max="50" />
+        </label>
+        <label class="fld">Credits/min
+          <input id="perMin" type="number" value="8" min="1" max="2000" title="Free tier = 8; raise on paid plans" />
+        </label>
+        <label class="fld">Cache TTL (min)
+          <input id="ttlMin" type="number" value="30" min="1" max="1440" title="Rows newer than this are reused, not refetched" />
+        </label>
+        <label class="fld chk" title="Pull 1h only and derive 4h locally — 1 credit/stock instead of 2">
+          <input id="cheapMode" type="checkbox" checked /> Cheap mode (1 credit/stock)
+        </label>
+      </div>
+      <div class="scan-actions">
+        <button id="runBtn" class="btn btn-primary">Run Scan</button>
+        <button id="forceBtn" class="btn btn-ghost" title="Refetch every row, ignore cache">↻ Force all</button>
+        <button id="editUniverseBtn" class="btn btn-ghost">Edit universe</button>
+        <label class="auto"><input id="autoScan" type="checkbox" /> Auto-scan every
+          <input id="autoMin" type="number" value="30" min="5" max="240" /> min</label>
+        <span id="autoNote" class="muted small"></span>
+      </div>
+      <div id="scanProgress" class="scan-progress hidden">
+        <div class="bar"><div id="barFill" class="bar-fill"></div></div>
+        <span id="progressText" class="muted small"></span>
+      </div>
+      <p id="statusMsg" class="muted small"></p>
+    </section>
+
+    <!-- Results -->
+    <section class="panel">
+      <div class="results-head">
+        <h2 class="sec-title">Matches</h2>
+        <span id="resultMeta" class="muted small"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="scan-table results-table">
+          <thead>
+            <tr>
+              <th>#</th><th class="th-left">Symbol</th>
+              <th>RSI 1h</th><th>RSI 4h</th><th>Score</th><th>Signal</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Cost / backend reality -->
+    <section class="panel">
+      <h2 class="sec-title">Cost &amp; scaling</h2>
+      <ul class="muted small tips">
+        <li><b>Credits</b>: cheap mode = 1/stock, accurate (native 4h) = 2/stock. Free tier = 8/min, 800/day.</li>
+        <li>Scanning 50 stocks (cheap) ≈ 50 credits ≈ ~6 min on free. 500 stocks ≈ 500 credits — needs a paid plan (Grow, ~$29/mo: higher per-minute, no daily cap).</li>
+        <li><b>No database</b>: candles/RSI are cached in <code>localStorage</code>; stale rows (older than TTL) refetch, fresh ones don't.</li>
+        <li><b>True scheduled scanning</b> of thousands of stocks 24/7 would need a small backend (serverless cron + store). That can't run on GitHub Pages — this page is the browser-only version.</li>
+      </ul>
+    </section>
+  </main>
+
+  <!-- Universe editor modal -->
+  <div id="universeModal" class="modal hidden">
+    <div class="modal-card">
+      <h2>Edit universe</h2>
+      <p class="muted small">Paste tickers (comma / space / newline separated). Your list is saved in this browser. <span id="universeCount"></span></p>
+      <textarea id="universeText" rows="10" class="universe-text"></textarea>
+      <div class="modal-actions">
+        <button id="resetUniverseBtn" class="btn btn-ghost">Reset default</button>
+        <button id="saveUniverseBtn" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-card">
+      <h2>Twelve Data API Key</h2>
+      <p class="muted small">Stored only in this browser (<code>localStorage</code>). Free key (8 calls/min, 800/day):
+        <a href="https://twelvedata.com/" target="_blank" rel="noopener">twelvedata.com</a>. Candles are free.</p>
+      <div class="field">
+        <input id="tdKeyInput" type="password" placeholder="Twelve Data key" autocomplete="off" />
+      </div>
+      <div class="modal-actions">
+        <button id="saveKeyBtn" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer muted small">
+    Candles by <a href="https://twelvedata.com/" target="_blank" rel="noopener">Twelve Data</a> · RSI computed in-browser ·
+    No backend, no DB. Educational use only.
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/fullscan.js"></script>
+</body>
+</html>

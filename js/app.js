@@ -250,7 +250,15 @@ function init() {
   });
   el.settingsModal.addEventListener("click", (e) => { if (e.target === el.settingsModal) closeSettings(); });
 
+  // Deep-link from the Full Scanner: index.html?symbol=XYZ
+  const urlSym = new URLSearchParams(location.search).get("symbol");
+  if (urlSym) {
+    el.symbol.value = urlSym.toUpperCase();
+    saveSettings();
+  }
+
   if (!DL().getFinnhubKey() && !DL().getTdKey()) openSettings();
+  else if (urlSym) loadSymbol(urlSym.toUpperCase(), el.interval.value, el.period.value);
   else if (s.symbol) loadSymbol(s.symbol, el.interval.value, el.period.value);
 }
 

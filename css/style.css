@@ -356,6 +356,45 @@ tr.sig-take-profit td { background: rgba(248,81,73,.05); }
 
 .footer { text-align: center; padding: 20px; }
 
+/* ---- Full Scanner page ---- */
+.layout-single { max-width: 1080px; margin: 0 auto; padding: 22px; display: flex; flex-direction: column; gap: 18px; }
+.topnav { display: inline-flex; gap: 12px; margin-left: 8px; }
+.topnav a { font-size: 13px; }
+.sec-title { margin: 0 0 8px; font-size: 17px; }
+
+.credit-meter { font-size: 13px; padding: 8px 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; margin-top: 12px; }
+.credit-meter.warn { border-color: var(--yellow); color: var(--yellow); }
+.credit-meter.over { border-color: var(--red); color: var(--red); }
+
+.scan-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.fld { display: flex; flex-direction: column; gap: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.fld input, .fld select { width: 116px; }
+.fld.chk { flex-direction: row; align-items: center; gap: 7px; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text); align-self: flex-end; }
+.fld.chk input { width: auto; }
+
+.scan-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
+.auto { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.auto input[type="number"] { width: 58px; }
+.btn.running { background: var(--red); border-color: var(--red); color: #fff; }
+
+.results-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.results-table td.sym a { color: var(--text); font-weight: 700; }
+.results-table td.sym a:hover { color: var(--accent); text-decoration: underline; }
+.results-table .num.lo { color: var(--green); }
+.results-table .num.hi { color: var(--red); }
+.sig-entry { background: var(--green); color: #fff; }
+.sig-exit { background: var(--red); color: #fff; }
+
+.universe-text { width: 100%; box-sizing: border-box; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; resize: vertical; margin: 8px 0; }
+.tips { line-height: 1.8; padding-left: 18px; margin: 0; }
+
+@media (max-width: 640px) {
+  .layout-single { padding: 14px; gap: 14px; }
+  .fld input, .fld select { width: 100%; }
+  .fld { flex: 1 1 44%; }
+  .scan-actions .btn { flex: 1 1 auto; }
+}
+
 /* ---- Mobile ---- */
 @media (max-width: 640px) {
   .layout { padding: 14px; gap: 14px; }

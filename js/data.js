@@ -36,6 +36,8 @@ const finnhubThrottle = makeThrottle();   // free tier: 60/min
 const tdThrottle = makeThrottle();        // free tier: 8/min
 const FINNHUB_PER_MIN = 55;
 const TD_PER_MIN = 8;
+let tdPerMin = TD_PER_MIN;                 // configurable (raise for paid plans)
+const setTdPerMin = (n) => { tdPerMin = Math.max(1, n || TD_PER_MIN); };
 
 // ---- Finnhub fundamentals (free) ----
 async function finnhubGet(path, params) {
@@ -155,7 +157,7 @@ async function tdRsi(symbol, interval, period = RSI_PERIOD, outputsize = 200) {
   url.searchParams.set("series_type", "close");
   url.searchParams.set("outputsize", outputsize);
   url.searchParams.set("apikey", key);
-  await tdThrottle.take(TD_PER_MIN);
+  await tdThrottle.take(tdPerMin);
   const res = await fetch(url);
   const data = await res.json();
   if (data.status === "error") throw new Error(data.message || "Twelve Data error");
@@ -165,6 +167,41 @@ async function tdRsi(symbol, interval, period = RSI_PERIOD, outputsize = 200) {
     t: Math.floor(new Date(v.datetime.replace(" ", "T") + "Z").getTime() / 1000),
     rsi: parseFloat(v.rsi),
   })).reverse();
+}
+
+// ---- Twelve Data candles (time_series) — for computing RSI ourselves ----
+// 1 credit/symbol. Cheapest way to get OHLC; we compute RSI locally.
+async function tdTimeSeries(symbol, interval, outputsize = 80) {
+  const key = getTdKey();
+  if (!key) throw new Error("No Twelve Data key.");
+  const url = new URL(`${TD_BASE}/time_series`);
+  url.searchParams.set("symbol", symbol);
+  url.searchParams.set("interval", interval);
+  url.searchParams.set("outputsize", outputsize);
+  url.searchParams.set("apikey", key);
+  await tdThrottle.take(tdPerMin);
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.status === "error") {
+    const e = new Error(data.message || "Twelve Data error");
+    if (/run out|limit|credits/i.test(data.message || "")) e.rateLimited = true;
+    throw e;
+  }
+  if (!data.values || !data.values.length) throw new Error("no candles");
+  // newest-first -> chronological closes
+  return data.values.map((v) => parseFloat(v.close)).reverse();
+}
+
+// Group an array of closes into ~4h buckets (every 4 consecutive 1h bars).
+function groupTo4h(closes) {
+  const out = [];
+  for (let i = 0; i < closes.length; i += 4) out.push(closes[Math.min(i + 3, closes.length - 1)]);
+  return out;
+}
+function latestRSI(closes, period = RSI_PERIOD) {
+  const r = computeRSI(closes, period);
+  for (let i = r.length - 1; i >= 0; i--) if (r[i] != null) return r[i];
+  return null;
 }
 
 /* Public: get an RSI series for a timeframe.
@@ -209,7 +246,8 @@ async function rsiLatest(symbol, tf, period = RSI_PERIOD) {
 // Expose
 window.DataLayer = {
   getFinnhubKey, getTdKey, LS_FINNHUB, LS_TD,
-  finnhubThrottle, tdThrottle, FINNHUB_PER_MIN, TD_PER_MIN,
+  finnhubThrottle, tdThrottle, FINNHUB_PER_MIN, TD_PER_MIN, setTdPerMin,
   fetchQuote, fetchProfile, fetchMetric,
   rsiSeries, rsiLatest, computeRSI, sleep,
+  tdTimeSeries, groupTo4h, latestRSI,
 };
